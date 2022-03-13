@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+envdiff() {
+    # usage: envdiff app-name /path/to/envfile
+    # purpose: show modified environment variables after sourcing file
+
+    APP=$1
+    ENVFILE=$2
+    BASE_ENVFILE=$(basename $ENVFILE)
+
+    TMP_ENV_ORIG=$(mktemp)
+    printenv | sort -n > $TMP_ENV_ORIG
+
+    source $ENVFILE
+    TMP_ENV_NEW=$(mktemp)
+    printenv | sort -n > $TMP_ENV_NEW
+
+    ENVMOD="$(comm -13 $TMP_ENV_ORIG $TMP_ENV_NEW)"
+    if [[ ! -z "$ENVMOD" ]]; then
+        echo "file: $BASE_ENVFILE modified the following vars"
+        echo "$ENVMOD"
+    else
+        echo "file: $BASE_ENVFILE did not modify any vars"
+    fi
+
+    rm $TMP_ENV_ORIG $TMP_ENV_NEW
+}
+
+confadd() {
+    # usage: confadd app-name
+    # purpose: find, sort, source, and show modified environment variables in conf.d directory
+
+    APP=$1
+    APP_DIR="opt"
+    CONFDIR="/${APP_DIR}/${APP}/conf.d"
+    CONFFILES=$(find $CONFDIR -type f -name '*.env' | sort -n)
+    if [[ ! -z "$CONFFILES" ]]; then
+        echo "adding files from $CONFDIR"
+        for FILE in $(echo $CONFFILES); do
+            BASE_FILE=$(basename $FILE)
+            echo "found: $BASE_FILE"
+            envdiff $APP $FILE
+            echo
+        done
+    else
+        echo "no additional configuration files found"
+    fi
+}
